@@ -6,7 +6,7 @@ EASY_WIDTH: const[uint8] = 8
 EASY_HEIGHT: const[uint8] = 8
 EASY_SHIFT: const[uint8] = 3
 EASY_MASK: const[uint8] = 0x7
-EASY_MINES: const[uint8] = 10
+EASY_MINES: const[uint8] = 8
 
 MEDIUM_WIDTH: const[uint8] = 16
 MEDIUM_HEIGHT: const[uint8] = 16
@@ -18,7 +18,7 @@ HARD_WIDTH: const[uint8] = 32
 HARD_HEIGHT: const[uint8] = 16
 HARD_SHIFT: const[uint8] = 5
 HARD_MASK: const[uint8] = 0x1F
-HARD_MINES: const[uint8] = 90
+HARD_MINES: const[uint8] = 95
 
 MODE_EASY: const[uint8] = 1
 MODE_MEDIUM: const[uint8] = 2
@@ -208,7 +208,7 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
         mines -= 1
 
 
-def _playfield_reveal(xpos: uint8, ypos: uint8) -> void:
+def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char) -> void:
     """
     Reveal a single position that we know is safe due to it being adjacent
     to a blank space. It could be a flag, at which point we refuse to reveal.
@@ -218,6 +218,11 @@ def _playfield_reveal(xpos: uint8, ypos: uint8) -> void:
     """
 
     loc: uint16 = _get_loc(xpos, ypos)
+    state: uint8 = ord(__playfield[loc])
+    if state & (PLAYFIELD_REVEALED | PLAYFIELD_FLAGGED):
+        # This is either revealed or flagged, so don't handle it.
+        return
+
     width: uint8
     height: uint8
     if __mode == MODE_EASY:
@@ -236,15 +241,12 @@ def _playfield_reveal(xpos: uint8, ypos: uint8) -> void:
         width = 0
         height = 0
 
-    state: uint8 = ord(__playfield[loc])
-    if state & (PLAYFIELD_REVEALED | PLAYFIELD_FLAGGED):
-        # This is either revealed or flagged, so don't handle it.
-        return
-
     state |= PLAYFIELD_REVEALED
     __playfield[loc] = chr(state)
 
     # Need to draw the count or an empty space.
+    serial_send("\033[")
+    serial_send_byte(ord(step_val))
     serial_send_byte(ord(COUNTS[state & PLAYFIELD_PROXIMITY_COUNT]))
     serial_send("\033[D")
 
@@ -252,21 +254,16 @@ def _playfield_reveal(xpos: uint8, ypos: uint8) -> void:
     if not state & PLAYFIELD_PROXIMITY_COUNT:
         # Need to recursively walk and reveal other tiles.
         if xpos != 0:
-            serial_send("\033[D")
-            _playfield_reveal(xpos - 1, ypos)
-            serial_send("\033[C")
+            _playfield_reveal(xpos - 1, ypos, 'D', 'C')
         if xpos != width - 1:
-            serial_send("\033[C")
-            _playfield_reveal(xpos + 1, ypos)
-            serial_send("\033[D")
+            _playfield_reveal(xpos + 1, ypos, 'C', 'D')
         if ypos != 0:
-            serial_send("\033[A")
-            _playfield_reveal(xpos, ypos - 1)
-            serial_send("\033[B")
+            _playfield_reveal(xpos, ypos - 1, 'A', 'B')
         if ypos != height - 1:
-            serial_send("\033[B")
-            _playfield_reveal(xpos, ypos + 1)
-            serial_send("\033[A")
+            _playfield_reveal(xpos, ypos + 1, 'B', 'A')
+
+    serial_send("\033[")
+    serial_send_byte(ord(return_val))
 
 
 def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
@@ -299,6 +296,8 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
         height = 0
 
     state: uint8 = ord(__playfield[loc])
+    if state & PLAYFIELD_REVEALED:
+        return STATE_NORMAL if __spots_left else STATE_WON
 
     # Put us into special character mode.
     serial_send_byte(ord("\x0E"))
@@ -327,21 +326,13 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
         if not state & PLAYFIELD_PROXIMITY_COUNT:
             # Need to recursively walk and reveal other tiles.
             if xpos != 0:
-                serial_send("\033[D")
-                _playfield_reveal(xpos - 1, ypos)
-                serial_send("\033[C")
+                _playfield_reveal(xpos - 1, ypos, 'D', 'C')
             if xpos != width - 1:
-                serial_send("\033[C")
-                _playfield_reveal(xpos + 1, ypos)
-                serial_send("\033[D")
+                _playfield_reveal(xpos + 1, ypos, 'C', 'D')
             if ypos != 0:
-                serial_send("\033[A")
-                _playfield_reveal(xpos, ypos - 1)
-                serial_send("\033[B")
+                _playfield_reveal(xpos, ypos - 1, 'A', 'B')
             if ypos != height - 1:
-                serial_send("\033[B")
-                _playfield_reveal(xpos, ypos + 1)
-                serial_send("\033[A")
+                _playfield_reveal(xpos, ypos + 1, 'B', 'A')
 
     serial_send_byte(ord("\x0F"))
     return STATE_NORMAL if __spots_left else STATE_WON
