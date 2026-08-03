@@ -2,6 +2,9 @@ from math.random import random_int
 from hardware.serial import serial_move, serial_send, serial_send_byte, serial_reverse
 
 
+PLAYFIELD_LEFT: const[uint8] = 5
+PLAYFIELD_TOP: const[uint8] = 5
+
 EASY_WIDTH: const[uint8] = 8
 EASY_HEIGHT: const[uint8] = 8
 EASY_SHIFT: const[uint8] = 3
@@ -377,6 +380,7 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
 
     width: uint8 = 0
     loc: uint16 = _get_loc(xpos, ypos)
+    pos: uint8 = 0
 
     if __mode == MODE_EASY:
         width = EASY_WIDTH
@@ -385,17 +389,23 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
     elif __mode == MODE_HARD:
         width = HARD_WIDTH
 
-    serial_move(5, 5)
+    serial_move(PLAYFIELD_TOP, PLAYFIELD_LEFT)
 
-    # Save the serial position for faster moving back. Swap to alternate drawing set.
-    serial_send("\x0E\0337")
+    # Swap to alternate drawing set for box drawing and diamond/middle dot. Save
+    # the serial position for faster moving back.
+    serial_send("\x0E\0337\x6C")
+    for pos in range(width):
+        serial_send_byte(ord("\x71"))
 
-    pos: uint8 = 0
+    # Finish drawing the top bits, move to the next line.
+    serial_send("\x6B\0338\033D\0337\x78")
+
+    pos = 0
     ch: char
     for ch in __playfield:
         if pos == width:
             # Move back to the beginning of the line, move down one line, resave.
-            serial_send("\0338\033D\0337")
+            serial_send("\x78\0338\033D\0337\x78")
             pos = 0
 
         if ord(ch) & PLAYFIELD_REVEALED:
@@ -415,8 +425,13 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
 
         pos += 1
 
+    # Draw the bottom bits.
+    serial_send("\x78\0338\033D\x6D")
+    for pos in range(width):
+        serial_send_byte(ord("\x71"))
+
     # Swap back to normal drawing set.
-    serial_send("\x0F")
+    serial_send("\x6A\x0F")
 
     # Move cursor to the right spot.
-    serial_move(5 + ypos, 5 + xpos)
+    serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)
