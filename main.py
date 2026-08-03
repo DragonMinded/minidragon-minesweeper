@@ -80,13 +80,7 @@ def get_input() -> uint8:
     return 0
 
 
-def main() -> void:
-    serial_clear()
-    serial_send("Minesweeper")
-
-    # Set up for box drawing with faster swapping.
-    serial_send("\033(B\033)0")
-
+def game(mode: uint8) -> void:
     playfield_init(MODE_EASY)
     playfield_draw(0, 0)
 
@@ -126,6 +120,17 @@ def main() -> void:
 
         elif action == INPUT_FLAG:
             playfield_flag(xpos, ypos)
+
+
+def main() -> void:
+    serial_clear()
+    serial_send("Minesweeper")
+
+    # Set up for box drawing with faster swapping.
+    serial_send("\033(B\033)0")
+
+    # Play an easy game.
+    game(MODE_EASY)
 
     # Exit on enter pressed.
     serial_recv(echo_input=False, allow_empty=True)
