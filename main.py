@@ -70,11 +70,19 @@ def get_input() -> uint8:
                     # We don't care about this, swallow it.
                     break
         
-        elif recvd == " " or recvd == "\n":
+        elif recvd == "\n":
             # Space or return is for revealing.
             return INPUT_REVEAL
 
-        elif recvd == "f" or recvd == "F":
+        elif recvd == " ":
+            # Space or return is for revealing.
+            return INPUT_REVEAL
+
+        elif recvd == "f":
+            # F key is for toggling a flag.
+            return INPUT_FLAG
+
+        elif recvd == "F":
             # F key is for toggling a flag.
             return INPUT_FLAG
 
