@@ -6,6 +6,7 @@ from hardware.serial import (
     serial_clear,
     serial_send,
     serial_recv,
+    serial_move,
 )
 from math.random import (
     random_step,
@@ -69,8 +70,8 @@ def get_input() -> uint8:
                     # We don't care about this, swallow it.
                     break
         
-        elif recvd == " ":
-            # Space is for revealing.
+        elif recvd == " " or recvd == "\n":
+            # Space or return is for revealing.
             return INPUT_REVEAL
 
         elif recvd == "f" or recvd == "F":
@@ -80,14 +81,79 @@ def get_input() -> uint8:
     return 0
 
 
+def menu() -> uint8:
+    serial_clear()
+
+    # Draw the top logo.
+    serial_move(2, 32)
+    serial_send("\x0E\0337\x6C\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x6B")
+    serial_send("\0338\033D\0337\x78\x0F Mine Sweeper \x0E\x78")
+    serial_send("\0338\033D\x6D\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x71\x6A\x0F")
+
+    # Draw the menu itself.
+    serial_move(6, 29)
+    serial_send("\x0E\140\x0F Beginner (8x8)")
+    serial_move(7, 29)
+    serial_send("\x0E\140\x0F Intermediate (16x16)")
+    serial_move(8, 29)
+    serial_send("\x0E\140\x0F Expert (32x16)")
+    serial_move(9, 29)
+    serial_send("\x0E\140\x0F Quit Game")
+
+    # Handle menu input.
+    serial_move(6, 29)
+    MODE_QUIT: const[uint8] = MODE_HARD + 1
+    mode: uint8 = MODE_EASY
+
+    while True:
+        action: uint8 = get_input()
+        if action == INPUT_UP:
+            if mode != MODE_EASY:
+                mode -= 1
+                serial_send("\033[A")
+            continue
+        if action == INPUT_DOWN:
+            if mode != MODE_QUIT:
+                mode += 1
+                serial_send("\033[B")
+            continue
+        if action == INPUT_REVEAL:
+            return 0 if mode == MODE_QUIT else mode
+
+    return 0
+
+
 def game(mode: uint8) -> void:
-    playfield_init(MODE_EASY)
+    serial_clear()
+    serial_move(2, 2)
+    serial_send("Initializing playfield...")
+    playfield_init(mode)
     playfield_draw(0, 0)
+
+    # Erase the initializing playfield display.
+    serial_send("\0337")
+    serial_move(2, 2)
+    serial_send("\033[2K\0338")
 
     xpos: uint8 = 0
     ypos: uint8 = 0
-    width: uint8 = EASY_WIDTH
-    height: uint8 = EASY_HEIGHT
+    width: uint8
+    height: uint8
+    if mode == MODE_EASY:
+        width = EASY_WIDTH
+        height = EASY_HEIGHT
+    elif mode == MODE_MEDIUM:
+        width = MEDIUM_WIDTH
+        height = MEDIUM_HEIGHT
+    elif mode == MODE_HARD:
+        width = HARD_WIDTH
+        height = HARD_HEIGHT
+    else:
+        # Should never happen.
+        assert False, f"Unexpected mode {mode} in game loop!"
+
+        width = 0
+        height = 0
 
     while True:
         action: uint8 = get_input()
@@ -123,14 +189,17 @@ def game(mode: uint8) -> void:
 
 
 def main() -> void:
-    serial_clear()
-    serial_send("Minesweeper")
-
     # Set up for box drawing with faster swapping.
     serial_send("\033(B\033)0")
 
-    # Play an easy game.
-    game(MODE_EASY)
+    # Main game loop.
+    while True:
+        # Draw the new game menu.
+        mode: uint8 = menu()
 
-    # Exit on enter pressed.
-    serial_recv(echo_input=False, allow_empty=True)
+        if not mode:
+            # Chose to exit.
+            return
+
+        # Play selected game.
+        game(mode)
