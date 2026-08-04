@@ -412,15 +412,19 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
         _playfield_message("Revealed a mine, you lose!")
 
     width: uint8 = 0
+    height: uint8 = 0
     loc: uint16 = _get_loc(xpos, ypos)
     pos: uint8 = 0
 
     if __mode == MODE_EASY:
         width = EASY_WIDTH
+        height = EASY_HEIGHT
     elif __mode == MODE_MEDIUM:
         width = MEDIUM_WIDTH
+        height = MEDIUM_HEIGHT
     elif __mode == MODE_HARD:
         width = HARD_WIDTH
+        height = HARD_HEIGHT
 
     serial_move(PLAYFIELD_TOP, PLAYFIELD_LEFT)
 
@@ -476,6 +480,12 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
     if state == STATE_PLAYING:
         serial_move(MESSAGES_TOP, MESSAGES_LEFT)
         serial_send("\033[2K")
+
+        # Move below the playfield to display instructions.
+        serial_move(PLAYFIELD_TOP + 4 + height, MESSAGES_LEFT)
+        serial_send("[SPACE] to reveal the spot under the cursor")
+        serial_move(PLAYFIELD_TOP + 5 + height, MESSAGES_LEFT)
+        serial_send("[F] to toggle a flag under the cursor")
 
     # Move cursor to the right spot.
     serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)

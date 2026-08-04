@@ -37,6 +37,7 @@ INPUT_LEFT: const[uint8] = 3
 INPUT_RIGHT: const[uint8] = 4
 INPUT_REVEAL: const[uint8] = 5
 INPUT_FLAG: const[uint8] = 6
+INPUT_CHOOSE: const[uint8] = 7
 
 
 def get_input() -> uint8:
@@ -75,7 +76,7 @@ def get_input() -> uint8:
         
         elif recvd == "\n":
             # Space or return is for revealing.
-            return INPUT_REVEAL
+            return INPUT_CHOOSE
 
         elif recvd == " ":
             # Space or return is for revealing.
@@ -128,7 +129,7 @@ def menu() -> uint8:
                 mode += 1
                 serial_send("\033[B")
             continue
-        if action == INPUT_REVEAL:
+        if action == INPUT_CHOOSE:
             return 0 if mode == MODE_QUIT else mode
 
     return 0
@@ -194,17 +195,18 @@ def game(mode: uint8) -> void:
             state: uint8 = playfield_click(xpos, ypos)
             if state == STATE_LOST:
                 playfield_draw(xpos, ypos, STATE_LOST)
-                while get_input() != INPUT_REVEAL:
-                    pass
-
-                return
-
             elif state == STATE_WON:
                 playfield_draw(xpos, ypos, STATE_WON)
-                while get_input() != INPUT_REVEAL:
-                    pass
+            else:
+                continue
 
-                return
+            # When winning or losing, wait until they press enter or space.
+            while True:
+                inval: uint8 = get_input()
+                if inval == INPUT_REVEAL:
+                    return
+                if inval == INPUT_CHOOSE:
+                    return
 
         elif action == INPUT_FLAG:
             playfield_flag(xpos, ypos)
