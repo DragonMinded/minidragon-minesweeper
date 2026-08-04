@@ -38,6 +38,7 @@ INPUT_RIGHT: const[uint8] = 4
 INPUT_REVEAL: const[uint8] = 5
 INPUT_FLAG: const[uint8] = 6
 INPUT_CHOOSE: const[uint8] = 7
+INPUT_QUIT: const[uint8] = 8
 
 
 def get_input() -> uint8:
@@ -89,6 +90,14 @@ def get_input() -> uint8:
         elif recvd == "F":
             # F key is for toggling a flag.
             return INPUT_FLAG
+
+        elif recvd == "q":
+            # Q key is for quitting.
+            return INPUT_QUIT
+
+        elif recvd == "Q":
+            # Q key is for quitting.
+            return INPUT_QUIT
 
     return 0
 
@@ -207,9 +216,14 @@ def game(mode: uint8) -> void:
                     return
                 if inval == INPUT_CHOOSE:
                     return
+                if inval == INPUT_QUIT:
+                    return
 
         elif action == INPUT_FLAG:
             playfield_flag(xpos, ypos)
+
+        elif action == INPUT_QUIT:
+            return
 
 
 def main() -> void:

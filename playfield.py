@@ -2,10 +2,10 @@ from math.random import random_int
 from hardware.serial import serial_move, serial_send, serial_send_byte, serial_reverse
 
 
-PLAYFIELD_LEFT: const[uint8] = 5
-PLAYFIELD_TOP: const[uint8] = 5
-MESSAGES_LEFT: const[uint8] = 2
-MESSAGES_TOP: const[uint8] = 2
+PLAYFIELD_LEFT: const[uint8] = 3
+PLAYFIELD_TOP: const[uint8] = 3
+MESSAGES_LEFT: const[uint8] = 1
+MESSAGES_TOP: const[uint8] = 1
 
 EASY_WIDTH: const[uint8] = 8
 EASY_HEIGHT: const[uint8] = 8
@@ -38,7 +38,6 @@ STATE_LOST: const[uint8] = 2
 __playfield: str[HARD_WIDTH * HARD_HEIGHT + 1]
 __mode: uint8
 __stride: uint8
-__size: uint16
 __mines: uint8
 __spots_left: uint16
 __generated: bool
@@ -66,7 +65,6 @@ def playfield_init(mode: uint8) -> void:
     """
 
     global __mode
-    global __size
     global __mines
     global __spots_left
     global __stride
@@ -81,18 +79,19 @@ def playfield_init(mode: uint8) -> void:
     __playing = True
     __generated = False
 
+    size: uint16 = 0
     if mode == MODE_EASY:
-        __size = EASY_WIDTH * EASY_HEIGHT
+        size = EASY_WIDTH * EASY_HEIGHT
         __stride = EASY_WIDTH
         __mines = EASY_MINES
         __spots_left = (EASY_WIDTH * EASY_HEIGHT) - EASY_MINES
     elif mode == MODE_MEDIUM:
-        __size = MEDIUM_WIDTH * MEDIUM_HEIGHT
+        size = MEDIUM_WIDTH * MEDIUM_HEIGHT
         __stride = MEDIUM_WIDTH
         __mines = MEDIUM_MINES
         __spots_left = (MEDIUM_WIDTH * MEDIUM_HEIGHT) - MEDIUM_MINES
     elif mode == MODE_HARD:
-        __size = HARD_WIDTH * HARD_HEIGHT
+        size = HARD_WIDTH * HARD_HEIGHT
         __stride = HARD_WIDTH
         __mines = HARD_MINES
         __spots_left = (HARD_WIDTH * HARD_HEIGHT) - HARD_MINES
@@ -102,9 +101,9 @@ def playfield_init(mode: uint8) -> void:
         __playing = False
 
     pos: uint16
-    for pos in range(__size):
+    for pos in range(size):
         __playfield[pos] = chr(PLAYFIELD_INITIALIZED)
-    __playfield[__size] = "\x00"
+    __playfield[size] = "\x00"
 
 
 def playfield_game_in_progress() -> bool:
@@ -115,7 +114,7 @@ def playfield_game_in_progress() -> bool:
     return __playing
 
 
-def _get_loc(xpos: uint8, ypos: uint8) -> uint16:
+def __get_loc(xpos: uint8, ypos: uint8) -> uint16:
     """
     Gets the offset into the playfield given an x/y coordinate.
     """
@@ -132,7 +131,7 @@ def _get_loc(xpos: uint8, ypos: uint8) -> uint16:
         return 0
 
 
-def _playfield_message(message: const[str]) -> void:
+def __playfield_message(message: const[str]) -> void:
     """
     Display a message in the playfield message area.
     """
@@ -142,14 +141,14 @@ def _playfield_message(message: const[str]) -> void:
     serial_send("\0338")
 
 
-def _playfield_increment(loc: uint16) -> void:
+def __playfield_increment(loc: uint16) -> void:
     """
     Increment the mine count at a location.
     """
     __playfield[loc] = chr(ord(__playfield[loc]) + 1)
 
 
-def playfield_generate(xpos: uint8, ypos: uint8) -> void:
+def __playfield_generate(xpos: uint8, ypos: uint8) -> void:
     """
     Generates the playfield based on the user's first selection, making sure
     that they can never click a mine on the first click.
@@ -163,28 +162,32 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
     serial_move(MESSAGES_TOP, MESSAGES_LEFT)
     serial_send("Placing mines...")
 
-    dmz: uint16 = _get_loc(xpos, ypos)
+    dmz: uint16 = __get_loc(xpos, ypos)
     mines: uint8 = __mines
 
     shift: uint8
     mask: uint8
     width: uint8
     height: uint8
+    size: uint16
     if __mode == MODE_EASY:
         shift = EASY_SHIFT
         mask = EASY_MASK
         width = EASY_WIDTH
         height = EASY_HEIGHT
+        size = (EASY_WIDTH * EASY_HEIGHT) - 1
     elif __mode == MODE_MEDIUM:
         shift = MEDIUM_SHIFT
         mask = MEDIUM_MASK
         width = MEDIUM_WIDTH
         height = MEDIUM_HEIGHT
+        size = (MEDIUM_WIDTH * MEDIUM_HEIGHT) - 1
     elif __mode == MODE_HARD:
         shift = HARD_SHIFT
         mask = HARD_MASK
         width = HARD_WIDTH
         height = HARD_HEIGHT
+        size = (HARD_WIDTH * HARD_HEIGHT) - 1
     else:
         # Should never happen unless there's a programmer error
         assert False, f"Invalid game mode mode {__mode}"
@@ -194,8 +197,8 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
         width = 0
         height = 0
         mines = 0
+        size = 0
 
-    size: uint16 = __size - 1
     while mines:
         loc: uint16 = random_int(0, size)
 
@@ -218,24 +221,24 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
         bottom: bool = my == height - 1
 
         if not left:
-            _playfield_increment(loc - 1)
+            __playfield_increment(loc - 1)
 
             if not top:
-                _playfield_increment(loc - 1 - width)
+                __playfield_increment(loc - 1 - width)
             if not bottom:
-                _playfield_increment(loc - 1 + width)
+                __playfield_increment(loc - 1 + width)
         if not right:
-            _playfield_increment(loc + 1)
+            __playfield_increment(loc + 1)
 
             if not top:
-                _playfield_increment(loc + 1 - width)
+                __playfield_increment(loc + 1 - width)
             if not bottom:
-                _playfield_increment(loc + 1 + width)
+                __playfield_increment(loc + 1 + width)
 
         if not top:
-            _playfield_increment(loc - width)
+            __playfield_increment(loc - width)
         if not bottom:
-            _playfield_increment(loc + width)
+            __playfield_increment(loc + width)
 
         mines -= 1
 
@@ -244,7 +247,7 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
     serial_send("\033[2K\0338")
 
 
-def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char) -> void:
+def __playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char) -> void:
     """
     Reveal a single position that we know is safe due to it being adjacent
     to a blank space. It could be a flag, at which point we refuse to reveal.
@@ -253,7 +256,7 @@ def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char
     revealed, at which point we stop.
     """
 
-    loc: uint16 = _get_loc(xpos, ypos)
+    loc: uint16 = __get_loc(xpos, ypos)
     state: uint8 = ord(__playfield[loc])
     if state & (PLAYFIELD_REVEALED | PLAYFIELD_FLAGGED):
         # This is either revealed or flagged, so don't handle it.
@@ -293,13 +296,13 @@ def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char
     if not state & PLAYFIELD_PROXIMITY_COUNT:
         # Need to recursively walk and reveal other tiles.
         if xpos != 0:
-            _playfield_reveal(xpos - 1, ypos, 'D', 'C')
+            __playfield_reveal(xpos - 1, ypos, 'D', 'C')
         if xpos != width - 1:
-            _playfield_reveal(xpos + 1, ypos, 'C', 'D')
+            __playfield_reveal(xpos + 1, ypos, 'C', 'D')
         if ypos != 0:
-            _playfield_reveal(xpos, ypos - 1, 'A', 'B')
+            __playfield_reveal(xpos, ypos - 1, 'A', 'B')
         if ypos != height - 1:
-            _playfield_reveal(xpos, ypos + 1, 'B', 'A')
+            __playfield_reveal(xpos, ypos + 1, 'B', 'A')
 
     serial_send("\033[")
     serial_send_byte(ord(return_val))
@@ -313,11 +316,11 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
     """
 
     if not __generated:
-        playfield_generate(xpos, ypos)
+        __playfield_generate(xpos, ypos)
 
     assert __generated, "Failed to generate playfield!"
 
-    loc: uint16 = _get_loc(xpos, ypos)
+    loc: uint16 = __get_loc(xpos, ypos)
     width: uint8
     height: uint8
     if __mode == MODE_EASY:
@@ -367,13 +370,13 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
         if not state & PLAYFIELD_PROXIMITY_COUNT:
             # Need to recursively walk and reveal other tiles.
             if xpos != 0:
-                _playfield_reveal(xpos - 1, ypos, 'D', 'C')
+                __playfield_reveal(xpos - 1, ypos, 'D', 'C')
             if xpos != width - 1:
-                _playfield_reveal(xpos + 1, ypos, 'C', 'D')
+                __playfield_reveal(xpos + 1, ypos, 'C', 'D')
             if ypos != 0:
-                _playfield_reveal(xpos, ypos - 1, 'A', 'B')
+                __playfield_reveal(xpos, ypos - 1, 'A', 'B')
             if ypos != height - 1:
-                _playfield_reveal(xpos, ypos + 1, 'B', 'A')
+                __playfield_reveal(xpos, ypos + 1, 'B', 'A')
 
     serial_send_byte(ord("\x0F"))
     return STATE_PLAYING if __spots_left else STATE_WON
@@ -389,7 +392,7 @@ def playfield_flag(xpos: uint8, ypos: uint8) -> void:
     if not __generated:
         return
 
-    loc: uint16 = _get_loc(xpos, ypos)
+    loc: uint16 = __get_loc(xpos, ypos)
 
     state: uint8 = ord(__playfield[loc])
 
@@ -417,13 +420,13 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
     """
 
     if state == STATE_WON:
-        _playfield_message("Successfully swept mine field, you win!")
+        __playfield_message("Successfully swept mine field, you win!")
     elif state == STATE_LOST:
-        _playfield_message("Revealed a mine, you lose!")
+        __playfield_message("Revealed a mine, you lose!")
 
     width: uint8 = 0
     height: uint8 = 0
-    loc: uint16 = _get_loc(xpos, ypos)
+    loc: uint16 = __get_loc(xpos, ypos)
     pos: uint8 = 0
 
     if __mode == MODE_EASY:
@@ -489,16 +492,18 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
     # Swap back to normal drawing set.
     serial_send("\x6A\x0F")
 
-    # Erase any message display.
     if state == STATE_PLAYING:
+        # Move below the playfield to display instructions.
+        serial_move(PLAYFIELD_TOP + 3 + height, MESSAGES_LEFT)
+        serial_send("[SPACE] to reveal the spot under the cursor")
+        serial_move(PLAYFIELD_TOP + 4 + height, MESSAGES_LEFT)
+        serial_send("[F] to toggle a flag under the cursor")
+        serial_move(PLAYFIELD_TOP + 5 + height, MESSAGES_LEFT)
+        serial_send("[Q] to quit back to the menu")
+
+        # Erase any message display.
         serial_move(MESSAGES_TOP, MESSAGES_LEFT)
         serial_send("\033[2K")
-
-        # Move below the playfield to display instructions.
-        serial_move(PLAYFIELD_TOP + 4 + height, MESSAGES_LEFT)
-        serial_send("[SPACE] to reveal the spot under the cursor")
-        serial_move(PLAYFIELD_TOP + 5 + height, MESSAGES_LEFT)
-        serial_send("[F] to toggle a flag under the cursor")
 
     # Move cursor to the right spot.
     serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)
