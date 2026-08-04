@@ -29,7 +29,7 @@ MODE_EASY: const[uint8] = 1
 MODE_MEDIUM: const[uint8] = 2
 MODE_HARD: const[uint8] = 3
 
-STATE_NORMAL: const[uint8] = 0
+STATE_PLAYING: const[uint8] = 0
 STATE_WON: const[uint8] = 1
 STATE_LOST: const[uint8] = 2
 
@@ -131,7 +131,17 @@ def _get_loc(xpos: uint8, ypos: uint8) -> uint16:
         assert False, f"Invalid game mode mode {__mode}"
         return 0
 
-    
+
+def _playfield_message(message: const[str]) -> void:
+    """
+    Display a message in the playfield message area.
+    """
+    serial_send("\0337")
+    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+    serial_send(message)
+    serial_send("\0338")
+
+
 def playfield_generate(xpos: uint8, ypos: uint8) -> void:
     """
     Generates the playfield based on the user's first selection, making sure
@@ -261,6 +271,9 @@ def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char
 
     state |= PLAYFIELD_REVEALED
     __playfield[loc] = chr(state)
+        
+    global __spots_left
+    __spots_left -= 1
 
     # Need to draw the count or an empty space.
     serial_send("\033[")
@@ -315,7 +328,7 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
 
     state: uint8 = ord(__playfield[loc])
     if state & PLAYFIELD_REVEALED:
-        return STATE_NORMAL if __spots_left else STATE_WON
+        return STATE_PLAYING if __spots_left else STATE_WON
 
     # Put us into special character mode.
     serial_send_byte(ord("\x0E"))
@@ -353,7 +366,7 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
                 _playfield_reveal(xpos, ypos + 1, 'B', 'A')
 
     serial_send_byte(ord("\x0F"))
-    return STATE_NORMAL if __spots_left else STATE_WON
+    return STATE_PLAYING if __spots_left else STATE_WON
 
 
 def playfield_flag(xpos: uint8, ypos: uint8) -> void:
@@ -388,10 +401,15 @@ def playfield_flag(xpos: uint8, ypos: uint8) -> void:
             serial_send("\x0E\176\033[D\x0F")
 
 
-def playfield_draw(xpos: uint8, ypos: uint8) -> void:
+def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
     """
     Draw the playfield, including the cursor spot.
     """
+
+    if state == STATE_WON:
+        _playfield_message("Successfully swept mine field, you win!")
+    elif state == STATE_LOST:
+        _playfield_message("Revealed a mine, you lose!")
 
     width: uint8 = 0
     loc: uint16 = _get_loc(xpos, ypos)
@@ -434,6 +452,12 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
         elif ord(ch) & PLAYFIELD_FLAGGED:
             # Draw the flag diamond to signify a marked spot.
             serial_send_byte(ord("\140"))
+        elif state == STATE_WON:
+            # Draw the flag diamond to signify a swept spot.
+            serial_send_byte(ord("\140"))
+        elif state == STATE_LOST and ord(ch) & PLAYFIELD_MINE:
+            # Draw all the mines that the player missed.
+            serial_send_byte(ord("*"))
         else:
             # Draw a placeholder dot to indicate we haven't revealed yet.
             serial_send_byte(ord("\176"))
@@ -449,8 +473,9 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
     serial_send("\x6A\x0F")
 
     # Erase any message display.
-    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
-    serial_send("\033[2K")
+    if state == STATE_PLAYING:
+        serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+        serial_send("\033[2K")
 
     # Move cursor to the right spot.
     serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)

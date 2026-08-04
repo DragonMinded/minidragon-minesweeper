@@ -25,6 +25,9 @@ from playfield import (
     MEDIUM_HEIGHT,
     HARD_WIDTH,
     HARD_HEIGHT,
+    STATE_WON,
+    STATE_LOST,
+    STATE_PLAYING,
 )
 
 
@@ -134,7 +137,7 @@ def menu() -> uint8:
 def game(mode: uint8) -> void:
     serial_clear()
     playfield_init(mode)
-    playfield_draw(0, 0)
+    playfield_draw(0, 0, STATE_PLAYING)
 
     # Erase the initializing playfield display.
     serial_send("\0337")
@@ -188,7 +191,20 @@ def game(mode: uint8) -> void:
             continue
 
         elif action == INPUT_REVEAL:
-            playfield_click(xpos, ypos)
+            state: uint8 = playfield_click(xpos, ypos)
+            if state == STATE_LOST:
+                playfield_draw(xpos, ypos, STATE_LOST)
+                while get_input() != INPUT_REVEAL:
+                    pass
+
+                return
+
+            elif state == STATE_WON:
+                playfield_draw(xpos, ypos, STATE_WON)
+                while get_input() != INPUT_REVEAL:
+                    pass
+
+                return
 
         elif action == INPUT_FLAG:
             playfield_flag(xpos, ypos)
