@@ -35,7 +35,7 @@ STATE_LOST: const[uint8] = 2
 
 
 # General playfield globals.
-__playfield: str[HARD_WIDTH * HARD_HEIGHT]
+__playfield: str[HARD_WIDTH * HARD_HEIGHT + 1]
 __mode: uint8
 __stride: uint8
 __size: uint16
@@ -142,6 +142,13 @@ def _playfield_message(message: const[str]) -> void:
     serial_send("\0338")
 
 
+def _playfield_increment(loc: uint16) -> void:
+    """
+    Increment the mine count at a location.
+    """
+    __playfield[loc] = chr(ord(__playfield[loc]) + 1)
+
+
 def playfield_generate(xpos: uint8, ypos: uint8) -> void:
     """
     Generates the playfield based on the user's first selection, making sure
@@ -188,8 +195,9 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
         height = 0
         mines = 0
 
+    size: uint16 = __size - 1
     while mines:
-        loc: uint16 = random_int(0, __size - 1)
+        loc: uint16 = random_int(0, size)
 
         # Skip placing a mine here if it has one.
         if ord(__playfield[loc]) & PLAYFIELD_MINE:
@@ -210,24 +218,24 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
         bottom: bool = my == height - 1
 
         if not left:
-            __playfield[loc - 1] = chr(ord(__playfield[loc - 1]) + 1)
+            _playfield_increment(loc - 1)
 
             if not top:
-                __playfield[loc - 1 - width] = chr(ord(__playfield[loc - 1 - width]) + 1)
+                _playfield_increment(loc - 1 - width)
             if not bottom:
-                __playfield[loc - 1 + width] = chr(ord(__playfield[loc - 1 + width]) + 1)
+                _playfield_increment(loc - 1 + width)
         if not right:
-            __playfield[loc + 1] = chr(ord(__playfield[loc + 1]) + 1)
+            _playfield_increment(loc + 1)
 
             if not top:
-                __playfield[loc + 1 - width] = chr(ord(__playfield[loc + 1 - width]) + 1)
+                _playfield_increment(loc + 1 - width)
             if not bottom:
-                __playfield[loc + 1 + width] = chr(ord(__playfield[loc + 1 + width]) + 1)
+                _playfield_increment(loc + 1 + width)
 
         if not top:
-            __playfield[loc - width] = chr(ord(__playfield[loc - width]) + 1)
+            _playfield_increment(loc - width)
         if not bottom:
-            __playfield[loc + width] = chr(ord(__playfield[loc + width]) + 1)
+            _playfield_increment(loc + width)
 
         mines -= 1
 
@@ -306,6 +314,8 @@ def playfield_click(xpos: uint8, ypos: uint8) -> uint8:
 
     if not __generated:
         playfield_generate(xpos, ypos)
+
+    assert __generated, "Failed to generate playfield!"
 
     loc: uint16 = _get_loc(xpos, ypos)
     width: uint8
@@ -425,6 +435,9 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
     elif __mode == MODE_HARD:
         width = HARD_WIDTH
         height = HARD_HEIGHT
+    else:
+        # Should never happen unless there's a programmer error
+        assert False, f"Invalid game mode mode {__mode}"
 
     serial_move(PLAYFIELD_TOP, PLAYFIELD_LEFT)
 
