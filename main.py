@@ -133,8 +133,6 @@ def menu() -> uint8:
 
 def game(mode: uint8) -> void:
     serial_clear()
-    serial_move(2, 2)
-    serial_send("Initializing playfield...")
     playfield_init(mode)
     playfield_draw(0, 0)
 

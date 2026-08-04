@@ -4,6 +4,8 @@ from hardware.serial import serial_move, serial_send, serial_send_byte, serial_r
 
 PLAYFIELD_LEFT: const[uint8] = 5
 PLAYFIELD_TOP: const[uint8] = 5
+MESSAGES_LEFT: const[uint8] = 2
+MESSAGES_TOP: const[uint8] = 2
 
 EASY_WIDTH: const[uint8] = 8
 EASY_HEIGHT: const[uint8] = 8
@@ -71,6 +73,10 @@ def playfield_init(mode: uint8) -> void:
     global __playing
     global __generated
 
+    # Display what we're doing, since this can take a bit.
+    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+    serial_send("Initializing playfield...")
+
     __mode = mode
     __playing = True
     __generated = False
@@ -134,6 +140,11 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
 
     global __generated
     __generated = True
+
+    # Display what we're doing, since this can take quite a bit.
+    serial_send("\0337")
+    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+    serial_send("Placing mines...")
 
     dmz: uint16 = _get_loc(xpos, ypos)
     mines: uint8 = __mines
@@ -209,6 +220,10 @@ def playfield_generate(xpos: uint8, ypos: uint8) -> void:
             __playfield[loc + width] = chr(ord(__playfield[loc + width]) + 1)
 
         mines -= 1
+
+    # Erase any message display.
+    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+    serial_send("\033[2K\0338")
 
 
 def _playfield_reveal(xpos: uint8, ypos: uint8, step_val: char, return_val: char) -> void:
@@ -432,6 +447,10 @@ def playfield_draw(xpos: uint8, ypos: uint8) -> void:
 
     # Swap back to normal drawing set.
     serial_send("\x6A\x0F")
+
+    # Erase any message display.
+    serial_move(MESSAGES_TOP, MESSAGES_LEFT)
+    serial_send("\033[2K")
 
     # Move cursor to the right spot.
     serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)
