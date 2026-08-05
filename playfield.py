@@ -424,14 +424,18 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
 
     serial_move(PLAYFIELD_TOP, PLAYFIELD_LEFT)
 
-    # Swap to alternate drawing set for box drawing and diamond/middle dot. Save
-    # the serial position for faster moving back.
-    serial_send("\x0E\0337\x6C")
-    for pos in range(width):
-        serial_send_byte(ord("\x71"))
+    if state == STATE_PLAYING:
+        # Swap to alternate drawing set for box drawing and diamond/middle dot. Save
+        # the serial position for faster moving back.
+        serial_send("\x0E\0337\x6C")
+        for pos in range(width):
+            serial_send_byte(ord("\x71"))
 
-    # Finish drawing the top bits, move to the next line.
-    serial_send("\x6B\0338\033D\0337\x78")
+        # Finish drawing the top bits, move to the next line.
+        serial_send("\x6B\0338\033D\0337\x78")
+    else:
+        # Skip re-drawing the top bits, its slow.
+        serial_send("\x0E\033D\0337\x78")
 
     pos = 0
     ch: char
@@ -464,15 +468,15 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
 
         pos += 1
 
-    # Draw the bottom bits.
-    serial_send("\x78\0338\033D\x6D")
-    for pos in range(width):
-        serial_send_byte(ord("\x71"))
-
-    # Swap back to normal drawing set.
-    serial_send("\x6A\x0F")
-
     if state == STATE_PLAYING:
+        # Draw the bottom bits.
+        serial_send("\x78\0338\033D\x6D")
+        for pos in range(width):
+            serial_send_byte(ord("\x71"))
+
+        # Swap back to normal drawing set.
+        serial_send("\x6A\x0F")
+
         # Move below the playfield to display instructions.
         serial_move(PLAYFIELD_TOP + 3 + height, MESSAGES_LEFT)
         serial_send("[SPACE] to reveal the spot under the cursor")
@@ -484,6 +488,9 @@ def playfield_draw(xpos: uint8, ypos: uint8, state: uint8) -> void:
         # Erase any message display.
         serial_move(MESSAGES_TOP, MESSAGES_LEFT)
         serial_send("\033[2K")
+    else:
+        # Swap back to normal drawing set.
+        serial_send_byte(ord("\x0F"))
 
     # Move cursor to the right spot.
     serial_move(PLAYFIELD_TOP + 1 + ypos, PLAYFIELD_LEFT + 1 + xpos)
