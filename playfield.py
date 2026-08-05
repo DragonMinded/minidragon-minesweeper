@@ -190,7 +190,7 @@ def __playfield_generate(xpos: uint8, ypos: uint8) -> void:
 
         __playfield[loc] = chr(PLAYFIELD_MINE | PLAYFIELD_INITIALIZED)
         mx: uint8 = loc & mask
-        my: uint8 = loc >> shift
+        my: uint16 = loc >> shift
 
         # Mark adjacent spots with the number of mines nearby.
         left: bool = mx == 0
