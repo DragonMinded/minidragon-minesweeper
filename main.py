@@ -1,5 +1,3 @@
-import sys
-
 from hardware.serial import (
     serial_has_byte,
     serial_recv_byte,
