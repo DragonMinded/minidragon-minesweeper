@@ -199,19 +199,21 @@ def __playfield_generate(xpos: uint8, ypos: uint8) -> void:
         bottom: bool = my == height - 1
 
         if not left:
-            __playfield_increment(loc - 1)
+            prv: uint16 = loc - 1
+            __playfield_increment(prv)
 
             if not top:
-                __playfield_increment(loc - 1 - width)
+                __playfield_increment(prv - width)
             if not bottom:
-                __playfield_increment(loc - 1 + width)
+                __playfield_increment(prv + width)
         if not right:
-            __playfield_increment(loc + 1)
+            nxt: uint16 = loc + 1
+            __playfield_increment(nxt)
 
             if not top:
-                __playfield_increment(loc + 1 - width)
+                __playfield_increment(nxt - width)
             if not bottom:
-                __playfield_increment(loc + 1 + width)
+                __playfield_increment(nxt + width)
 
         if not top:
             __playfield_increment(loc - width)
