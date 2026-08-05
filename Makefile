@@ -30,7 +30,7 @@ CODES += $(filter %.S, ${SRCS})
 # Rule to convert any python file to its output init/data/code sections.
 build/%.init.S build/%.data.S build/%.code.S: %.py
 	@mkdir -p $(dir $@)
-	$(COMPILER) --lib lib/ --optimize -o build/$*.code.S -d build/$*.data.S -i build/$*.init.S $^
+	$(COMPILER) --lib lib/ --strip-debug-code --optimize -o build/$*.code.S -d build/$*.data.S -i build/$*.init.S $^
 
 # Rule to link your cartridge together to a final assembly listing.
 build/listing.S: $(STDLIB) $(PLATFORM) $(INITS) $(DATAS) $(CODES)
