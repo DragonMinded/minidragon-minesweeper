@@ -37,8 +37,6 @@ STATE_LOST: const[uint8] = 2
 # General playfield globals.
 __playfield: str[HARD_WIDTH * HARD_HEIGHT + 1]
 __mode: uint8
-__stride: uint8
-__mines: uint8
 __spots_left: uint16
 __generated: bool
 
@@ -55,20 +53,13 @@ PLAYFIELD_INITIALIZED: const[uint8] = 0x40
 COUNTS: const[str] = " 12345678       "
 
 
-# This is the only variable we need to init at boot time.
-__playing: bool = False
-
-
 def playfield_init(mode: uint8) -> void:
     """
     Initialize the game by setting up the playfield for the given mode.
     """
 
     global __mode
-    global __mines
     global __spots_left
-    global __stride
-    global __playing
     global __generated
 
     # Display what we're doing, since this can take a bit.
@@ -76,42 +67,26 @@ def playfield_init(mode: uint8) -> void:
     serial_send("Initializing playfield...")
 
     __mode = mode
-    __playing = True
     __generated = False
 
     size: uint16 = 0
     if mode == MODE_EASY:
         size = EASY_WIDTH * EASY_HEIGHT
-        __stride = EASY_WIDTH
-        __mines = EASY_MINES
         __spots_left = (EASY_WIDTH * EASY_HEIGHT) - EASY_MINES
     elif mode == MODE_MEDIUM:
         size = MEDIUM_WIDTH * MEDIUM_HEIGHT
-        __stride = MEDIUM_WIDTH
-        __mines = MEDIUM_MINES
         __spots_left = (MEDIUM_WIDTH * MEDIUM_HEIGHT) - MEDIUM_MINES
     elif mode == MODE_HARD:
         size = HARD_WIDTH * HARD_HEIGHT
-        __stride = HARD_WIDTH
-        __mines = HARD_MINES
         __spots_left = (HARD_WIDTH * HARD_HEIGHT) - HARD_MINES
     else:
         # Should never happen unless there's a programmer error
         assert False, f"Invalid mode {mode} parameter to playfield_init"
-        __playing = False
 
     pos: uint16
     for pos in range(size):
         __playfield[pos] = chr(PLAYFIELD_INITIALIZED)
     __playfield[size] = "\x00"
-
-
-def playfield_game_in_progress() -> bool:
-    """
-    Returns true if the game is in progress, false otherwise.
-    """
-
-    return __playing
 
 
 def __get_loc(xpos: uint8, ypos: uint8) -> uint16:
@@ -163,31 +138,34 @@ def __playfield_generate(xpos: uint8, ypos: uint8) -> void:
     serial_send("Placing mines...")
 
     dmz: uint16 = __get_loc(xpos, ypos)
-    mines: uint8 = __mines
 
     shift: uint8
     mask: uint8
     width: uint8
     height: uint8
     size: uint16
+    mines: uint8
     if __mode == MODE_EASY:
         shift = EASY_SHIFT
         mask = EASY_MASK
         width = EASY_WIDTH
         height = EASY_HEIGHT
         size = (EASY_WIDTH * EASY_HEIGHT) - 1
+        mines = EASY_MINES
     elif __mode == MODE_MEDIUM:
         shift = MEDIUM_SHIFT
         mask = MEDIUM_MASK
         width = MEDIUM_WIDTH
         height = MEDIUM_HEIGHT
         size = (MEDIUM_WIDTH * MEDIUM_HEIGHT) - 1
+        mines = MEDIUM_MINES
     elif __mode == MODE_HARD:
         shift = HARD_SHIFT
         mask = HARD_MASK
         width = HARD_WIDTH
         height = HARD_HEIGHT
         size = (HARD_WIDTH * HARD_HEIGHT) - 1
+        mines = HARD_MINES
     else:
         # Should never happen unless there's a programmer error
         assert False, f"Invalid game mode mode {__mode}"
