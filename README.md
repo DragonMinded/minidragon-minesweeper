@@ -1,0 +1,1 @@
+Mine Sweeper for the MiniDragon CPU/homebrew computer. Install the MiniDragon compiler suite using pipx from [https://github.com/DragonMinded/minidragon](https://github.com/DragonMinded/minidragon) and then compile with `make`. Run with `minidragon-emulator lib/bootrom.bin --cart minesweeper.cart`. Meant to be burned to a cartridge ROM and run on the actual MiniDragon CPU.
