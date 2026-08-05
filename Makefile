@@ -1,9 +1,10 @@
 # Example Makefile for building a cartridge for the MiniDragon CPU and minicomputer layout. Assumes that you
-# have installed this repository with pipx.
+# have installed https://github.com/dragonminded/minidragon using pipx.
 
 all: minesweeper.cart
 
-# Assumes you have installed this repository by default, change these if that's not true.
+# Assumes you have installed the MiniDragon compiler repository by default. Override these at the command
+# line if you are testing with a locally-built compiler.
 COMPILER ?= minidragon-compiler
 ASSEMBLER ?= minidragon-assembler
 GENERATOR ?= minidragon-generator
